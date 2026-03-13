@@ -3,6 +3,8 @@ numpy>=1.24
 matplotlib>=3.7
 scikit-learn>=1.3
 pandas>=2.0
+tqdm>=4.65       # streaming progress bars for training loops
+pyyaml>=6.0      # YAML config file support
 
 # Notebooks
 jupyter>=1.0

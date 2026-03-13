@@ -52,12 +52,16 @@ GLOBAL IMPORTS:
 import numpy as np
 import matplotlib.pyplot as plt
 
+try:
+    from tqdm import tqdm          # GLOBAL (optional): live progress bar during training
+    TQDM_AVAILABLE = True          # GLOBAL: flag — True if tqdm is installed
+except ImportError:
+    TQDM_AVAILABLE = False         # GLOBAL: graceful fallback if tqdm not installed
+
 # ── Package imports ────────────────────────────────────────────────────────────
-# Because mlzero is installed as a package (pip install -e .), imports are clean.
-# No sys.path hacks needed — Python finds mlzero automatically.
-from mlzero.core.base import BaseModel          # the template all models follow
-from mlzero.core.losses import mse              # loss function
-from mlzero.core.metrics import r2_score, rmse  # evaluation metrics
+from mlzero.core.base import BaseModel
+from mlzero.core.losses import mse
+from mlzero.core.metrics import r2_score, rmse
 
 
 # ==============================================================================
@@ -88,13 +92,15 @@ class LinearRegression(BaseModel):
                  After training: the baseline prediction
     """
 
-    def __init__(self, lr=0.01, epochs=1000):
+    def __init__(self, lr=0.01, epochs=1000, verbose=True, stream=True):
         # INSTANCE variables — belong to this model object
-        self.lr = lr           # learning rate (hyperparameter)
-        self.epochs = epochs   # training iterations (hyperparameter)
-        self.w = None          # weights — not set until fit() is called
-        self.b = None          # bias   — not set until fit() is called
-        self.loss_history = [] # track loss at each epoch to plot later
+        self.lr      = lr       # learning rate (hyperparameter)
+        self.epochs  = epochs   # training iterations (hyperparameter)
+        self.verbose = verbose  # whether to print progress at all
+        self.stream  = stream   # True = live tqdm bar, False = print every 100 epochs
+        self.w = None           # weights — not set until fit() is called
+        self.b = None           # bias   — not set until fit() is called
+        self.loss_history = []  # track loss at each epoch to plot later
 
     def fit(self, X, y):
         """
@@ -126,39 +132,54 @@ class LinearRegression(BaseModel):
         self.b = 0.0           # scalar — single bias value
 
         # ── Training loop ─────────────────────────────────────────────────────
-        for epoch in range(self.epochs):
+        # STREAMING: tqdm wraps range(epochs) to show a live progress bar.
+        # It streams updates to the terminal in real-time as each epoch completes.
+        # Without streaming: you see nothing until all epochs are done.
+        # With streaming: you see live loss, speed (epochs/sec), and ETA.
+
+        use_bar = self.verbose and self.stream and TQDM_AVAILABLE  # LOCAL
+
+        epoch_iter = tqdm(
+            range(self.epochs),
+            desc="Training",
+            unit="epoch",
+            dynamic_ncols=True,       # adapts bar width to terminal
+            colour="green",           # green bar
+            disable=not use_bar,      # if False: tqdm is invisible (no output)
+        ) if TQDM_AVAILABLE else range(self.epochs)
+
+        for epoch in epoch_iter:
 
             # STEP 1: Forward pass — compute predictions
-            # y_pred shape: (n,)  ←  X shape: (n,m) @ w shape: (m,) = (n,)
-            y_pred = X @ self.w + self.b   # LOCAL: predictions for this epoch
+            y_pred = X @ self.w + self.b   # LOCAL: shape (n,)
 
             # STEP 2: Compute loss
-            current_loss = mse(y, y_pred)          # LOCAL: scalar
-            self.loss_history.append(current_loss)  # save for plotting
+            current_loss = mse(y, y_pred)           # LOCAL: scalar
+            self.loss_history.append(current_loss)   # save for plotting
 
             # STEP 3: Compute gradients
-            # error shape: (n,) — how wrong each prediction is
-            error = y_pred - y   # LOCAL
+            error = y_pred - y                        # LOCAL: shape (n,)
+            dw    = (2 / n) * X.T @ error             # LOCAL: shape (m,)
+            db    = (2 / n) * np.sum(error)           # LOCAL: scalar
 
-            # Gradient for weights:
-            # (2/n) × X^T @ error  →  shape: (m,)
-            # X^T transposes X from (n,m) to (m,n), then @ error (n,) gives (m,)
-            dw = (2 / n) * X.T @ error    # LOCAL: gradient vector for weights
-
-            # Gradient for bias:
-            # (2/n) × sum of all errors
-            db = (2 / n) * np.sum(error)  # LOCAL: scalar gradient for bias
-
-            # STEP 4: Update parameters (gradient descent step)
+            # STEP 4: Update parameters
             self.w = self.w - self.lr * dw
             self.b = self.b - self.lr * db
 
-            # STEP 5: Log progress every 100 epochs
-            if epoch % 100 == 0:
+            # STEP 5: Stream live metrics into the progress bar
+            if use_bar and TQDM_AVAILABLE:
+                # tqdm.set_postfix() updates the right side of the bar in real-time
+                # This is what "streaming" means: metrics appear AS training runs
+                epoch_iter.set_postfix({
+                    "loss": f"{current_loss:.4f}",
+                    "w[0]": f"{self.w[0]:.3f}",
+                    "b":    f"{self.b:.3f}",
+                })
+            elif self.verbose and not self.stream and epoch % 100 == 0:
                 print(f"Epoch {epoch:5d} | Loss: {current_loss:.4f}")
 
-        print(f"\nTraining complete!")
-        print(f"Final loss: {self.loss_history[-1]:.4f}")
+        if self.verbose:
+            print(f"\nTraining complete! Final loss: {self.loss_history[-1]:.6f}")
 
     def predict(self, X):
         """

@@ -1,0 +1,29 @@
+# configs/supervised/linear_regression.yaml
+# Hyperparameter config for Linear Regression
+# Separated from code so you can experiment without touching source files.
+#
+# Usage in script:
+#   import yaml
+#   with open("configs/supervised/linear_regression.yaml") as f:
+#       cfg = yaml.safe_load(f)
+#   model = LinearRegression(lr=cfg["lr"], epochs=cfg["epochs"])
+
+model: LinearRegression
+
+# Training hyperparameters
+lr: 0.0001          # learning rate — try: 0.1, 0.01, 0.001, 0.0001
+epochs: 1000        # training iterations
+
+# Dataset config
+dataset:
+  n_samples: 100    # number of data points
+  noise_std: 10.0   # noise level (higher = harder to fit)
+  true_w: 3000.0    # ground truth weight (for synthetic data)
+  true_b: 50000.0   # ground truth bias  (for synthetic data)
+  train_ratio: 0.8  # fraction used for training (rest = test)
+  random_seed: 42   # for reproducibility
+
+# Evaluation
+eval:
+  metrics: [r2, rmse]   # metrics to compute
+  plot: true            # show plots after training

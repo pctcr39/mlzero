@@ -1,0 +1,72 @@
+# ================================================================================
+# docker-compose.yml — mlzero Services
+# ================================================================================
+#
+# WHAT IS DOCKER COMPOSE?
+#   A tool to define and run multi-container Docker applications.
+#   Instead of typing long `docker run` commands, you define everything here
+#   and run it with just: docker-compose up
+#
+# SERVICES IN THIS FILE:
+#   app  — Streamlit dashboard (port 8501)
+#           → http://localhost:8501
+#
+# HOW TO USE:
+#   # Start (build image first if needed, then run):
+#   docker-compose up --build
+#
+#   # Start in background (detached mode):
+#   docker-compose up -d --build
+#
+#   # Stop:
+#   docker-compose down
+#
+#   # See logs:
+#   docker-compose logs -f app
+#
+#   # Rebuild after code change:
+#   docker-compose up --build
+# ================================================================================
+
+version: "3.9"
+
+services:
+
+  # ── Streamlit Training Dashboard ────────────────────────────────────────────
+  app:
+    build:
+      context: .          # build from the Dockerfile in current directory
+      dockerfile: Dockerfile
+    image: mlzero:latest
+    container_name: mlzero_dashboard
+
+    ports:
+      - "8501:8501"       # host_port:container_port
+      #  ↑               ↑
+      #  your browser    inside container
+
+    volumes:
+      # Mount local outputs/ so plots and CI logs saved inside the container
+      # are ALSO visible on your Mac. Without this they disappear on restart.
+      - ./outputs:/workspace/outputs
+
+      # Mount configs/ so you can edit YAML hyperparams without rebuilding:
+      - ./configs:/workspace/configs
+
+      # Mount app/ for live code reload during development:
+      - ./app:/workspace/app
+
+    environment:
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_PORT=8501
+
+    # Restart policy: if the container crashes, restart it automatically
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

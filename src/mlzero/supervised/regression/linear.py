@@ -102,16 +102,22 @@ class LinearRegression(BaseModel):
         self.b = None           # bias   — not set until fit() is called
         self.loss_history = []  # track loss at each epoch to plot later
 
-    def fit(self, X, y):
+    def fit(self, X, y, callback=None):
         """
         Learn weights (w) and bias (b) from training data.
 
         PARAMETERS:
-            X (local) — feature matrix, shape: (n_samples, n_features)
-                        Example: [[80, 3], [60, 2], [120, 4]]
-                                  size rooms
-            y (local) — target vector, shape: (n_samples,)
-                        Example: [250000, 180000, 380000]
+            X (local)        — feature matrix, shape: (n_samples, n_features)
+                               Example: [[80, 3], [60, 2], [120, 4]]
+                                         size rooms
+            y (local)        — target vector, shape: (n_samples,)
+                               Example: [250000, 180000, 380000]
+            callback (local) — optional function called every N epochs for real-time UI updates
+                               Signature: callback(epoch, loss, w, b)
+                               Example: used by Streamlit to stream live loss charts
+                               WHY: decouples training logic from UI — the model doesn't
+                                    know or care about the UI; it just calls the callback
+                                    and the caller decides what to do with the data
 
         This method runs gradient descent: it loops `epochs` times,
         each time making predictions, measuring loss, computing gradients,
@@ -177,6 +183,15 @@ class LinearRegression(BaseModel):
                 })
             elif self.verbose and not self.stream and epoch % 100 == 0:
                 print(f"Epoch {epoch:5d} | Loss: {current_loss:.4f}")
+
+            # CALLBACK: notify the caller (e.g., a Streamlit UI) every N epochs
+            # LOCAL: callback_interval — how often to fire (every 1% of epochs, min 1)
+            # WHY every N instead of every epoch? Updating a UI 1000x/sec is too fast
+            # and causes flickering. Firing every 1% = smooth 100 updates total.
+            if callback is not None:
+                callback_interval = max(1, self.epochs // 100)   # LOCAL
+                if epoch % callback_interval == 0 or epoch == self.epochs - 1:
+                    callback(epoch, current_loss, self.w.copy(), float(self.b))
 
         if self.verbose:
             print(f"\nTraining complete! Final loss: {self.loss_history[-1]:.6f}")

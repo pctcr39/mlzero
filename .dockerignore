@@ -1,0 +1,35 @@
+# ── Python ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual environment (never copy into image — it has its own Python) ────────
+.venv/
+venv/
+env/
+
+# ── Tests (not needed in the production image) ────────────────────────────────
+tests/
+
+# ── Git ────────────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Jupyter ────────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+notebooks/
+
+# ── Outputs (generated at runtime via mounted volume) ─────────────────────────
+outputs/
+
+# ── Claude Code internal files ────────────────────────────────────────────────
+.claude/
+
+# ── macOS ──────────────────────────────────────────────────────────────────────
+.DS_Store
